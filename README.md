@@ -1,6 +1,8 @@
-# Remote Attestation: Remote Verifier
+# Context-based Authentication (CBA): Remote Server
 
-This is the code of the Remote Verifier counterpart for the Remote Attestation TA. A `Dockerfile` is provided for easy deployment and configuration
+**DISCLAIMER:** This code base is still very much work in progress! Actual verification using the Machine Learning model isn't possible yet, and the server returns a signed nonce (resembling a positive response) by default.
+
+This is the remote side for the CBA TA. A `Dockerfile` is provided for easy deployment and configuration
 
 ## Build
 
@@ -17,7 +19,8 @@ This container requires two certificates (with private key) and a binary file to
 - `CA_KEY_PATH` path to the key used for signing the mTLS client certs
 - `SSL_CERT_PATH`: path to the TLS certificate used for the server
 - `SSL_KEY_PATH`: path to the key for the TLS server certificate
-- `TARGET_VALUE_PATH`: path to the file which contains the content of the memory as it should be to get a positive attestation result
+- `SIGN_KEY_PATH`: path to the key for signing nonces upon successful authentication
+- `SIGN_CERT_PATH`: path to the certificate used to verify the signature of the nonces
 
 How the volumes are mounted can be arbitrary as long as the environment variables are adjusted.
 

@@ -1,6 +1,5 @@
 from lib.single_command_buffer import SingleCommandBuffer
 from lib.cert_funcs import sign_csr_with_ecc_ca, import_certificate, import_ecc_key, get_csr_cn
-from lib.hash_measurement import create_hash
 
 from dotenv import load_dotenv
 
@@ -17,7 +16,8 @@ CA_KEY_PATH = os.environ.get("CA_KEY_PATH", "")
 CA_CERT_PATH = os.environ.get("CA_CERT_PATH", "")
 SSL_KEY_PATH = os.environ.get("SSL_KEY_PATH", "")
 SSL_CERT_PATH = os.environ.get("SSL_CERT_PATH", "")
-TARGET_VALUE_PATH = os.environ.get("TARGET_VALUE_PATH", "")
+SIGN_KEY_PATH = os.environ.get("SIGN_KEY_PATH", "")
+SIGN_CERT_PATH = os.environ.get("SIGN_CERT_PATH", "")
 
 CA_KEY = import_ecc_key(
     CA_KEY_PATH
@@ -30,6 +30,12 @@ SSL_KEY = import_ecc_key(
 )
 SSL_CERT = import_certificate(
     SSL_CERT_PATH
+)
+SIGN_KEY = import_ecc_key(
+    SIGN_KEY_PATH
+)
+SIGN_CERT = import_certificate(
+    SIGN_CERT_PATH
 )
 
 
@@ -44,11 +50,12 @@ def sign_csr(csr: bytes) -> bytes:
     )
 
 
-with open(TARGET_VALUE_PATH, "rb") as f:
-    VERIFIED_HASH = create_hash(f.read())
+def sign_nonce(nonce: bytes) -> bytes:
+    return sign_nonce_with_key(nonce, SIGN_KEY)
 
 
 def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
+    c = 0
     print("ID:", remote_id)
     buf = SingleCommandBuffer()
 
@@ -58,11 +65,12 @@ def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
                 print("Client disconnected.")
                 break
             buf.update(rcv)
+            print(c)
+            c += 1
             #print(f"'{rcv.decode()}'")
 
             while (cmd := buf.get_next_command()):
                 cmd = [c.decode() for c in cmd]
-                print(cmd)
                 if cmd[0] == "ENROLL":
                     print("Client wants to enroll...")
                     try:
@@ -73,13 +81,21 @@ def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
                             resp = b"ERR\nALREADY_ENROLLED\n\n"
                         else:
                             signed = sign_csr(raw_csr)
-                            enrolled.append(common_name)
+                            #enrolled.append(common_name)
                             resp = b"SUCC\n" + signed + b"\n\n"
                             print("Success.")
                         client.send(resp)
                     except:
                         print("Error.")
                         client.send(b"ERR\n\n")
+                elif cmd[0] == "ENROLL_CSI":
+                    print("Wants to enroll CSI data...")
+                    #print(cmd)
+                    print(len(cmd), [len(c) for c in cmd[1:]], len(set(cmd[1:])))
+                    #resp = b"SUCC\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n\n"
+                    resp = b"SUCC\n?\n\n"
+                    print(resp)
+                    client.send(resp)
                 elif cmd[0] == "TEST":
                     if remote_id != None:
                         print(f"Test command from '{remote_id}'.")
@@ -87,18 +103,20 @@ def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
                     else:
                         print("Unauthorized test command!")
                         client.send(b"ERR\nNO_AUTH\n\n")
-                elif cmd[0] == "ATTEST":
+                elif cmd[0] == "PROVE":
                     if remote_id != None:
-                        print(f"Attestation request from '{remote_id}': {cmd[1]}")
-                        if cmd[1] == VERIFIED_HASH:
-                            client.send(b"SUCC\n\n")
-                        else:
-                            client.send(b"ERR\nINV\n\n")
+                        nonce = cmd[1]
+                        csi_data = cmd[2:]
+
+                        signed_nonce = sign_nonce(nonce).decode()
+
+                        client.send(f"SUCC\n{signed_nonce}\n\n")
                     else:
-                        print("Unauthorized Attest command!")
+                        print("Unauthorized prove command!")
                         client.send(b"ERR\nNO_AUTH\n\n")
                 else:
-                    print("Invalid command from client.")
+                    print(f"Invalid command from client ({cmd[0]}).")
+                    print(cmd)
                     try:
                         client.send(b"ERR\nINV_CMD\n\n")
                         print("Sent msg?")
@@ -106,7 +124,7 @@ def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
                         print("E INV CMD:", e)
                         pass
         except Exception as e:
-            print("E GEN:", e)
+            print("E GENERAL:", e)
             pass
 
 
@@ -138,6 +156,7 @@ def main():
 
     while True:
         client, _ = sock.accept()
+        print("Client connected.")
         try:
             wrapped_client = context.wrap_socket(
                 client,
