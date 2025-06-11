@@ -22,6 +22,12 @@ This container requires two certificates (with private key) and a binary file to
 - `SIGN_KEY_PATH`: path to the key for signing nonces upon successful authentication
 - `SIGN_CERT_PATH`: path to the certificate used to verify the signature of the nonces
 
-How the volumes are mounted can be arbitrary as long as the environment variables are adjusted.
+How the volumes are mounted can be arbitrary as long as the environment variables are adjusted. You are advised to load them from a `.env` file.
 
 The required certificates and keys can be created using the provided `create_keys.py` script. Alternatively, OpenSSL can be used.
+
+
+## Using together with the CBA Demo Application
+
+The demo application has a test function to verify if a provided signature was signed using the configured certificate. For this, the nonce `0` is used. The script `demo_signature.py` produces an output that can be copied directly to the C file.
+

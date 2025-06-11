@@ -4,11 +4,6 @@ services:
     volumes:
       - "./keys:/keys:ro"
       - "./verified:/verified:ro"
-    environment:
-      - CA_KEY_PATH=/keys/ca_key.pem
-      - CA_CERT_PATH=/keys/ca_cert.pem
-      - SSL_KEY_PATH=/keys/ssl_key.pem
-      - SSL_CERT_PATH=/keys/ssl_cert.pem
-      - TARGET_VALUE_PATH=/verified
+    env_file: ".env"
     ports:
       - 5432:5432

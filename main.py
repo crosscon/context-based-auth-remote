@@ -2,7 +2,6 @@ from lib.single_command_buffer import SingleCommandBuffer
 from lib.cert_funcs import sign_csr_with_ecc_ca, import_certificate, import_ecc_key, get_csr_cn, sign_nonce_with_key
 
 from dotenv import load_dotenv
-from base64 import b64encode, b64decode
 
 import logging
 import socket
@@ -51,13 +50,6 @@ def sign_csr(csr: bytes) -> bytes:
 def sign_nonce(nonce: bytes) -> bytes:
     return sign_nonce_with_key(nonce, SIGN_KEY)
 
-def demo_nonce() -> str:
-    nonce = b64encode(bytes([0 for _ in range(16)]))
-    signed_nonce = b64decode(sign_nonce(nonce))
-    size = len(signed_nonce)
-    num_string = ", ".join([str(int(b)) for b in signed_nonce])
-    return f"char SERVER_TEST_SIGNATURE[{size}] = {{ {num_string} }};"
-
 enrolled = []
 
 
@@ -96,7 +88,7 @@ def command_prove_device(client_id: str | None, cmd: list[bytes]) -> bytes:
 
     nonce = cmd[1]
     csi_data = cmd[2:]
-    print(f"Client {client_id} requested prove with {len(csi) - 2)} CSI samples")
+    print(f"Client {client_id} requested prove with {len(csi) - 2} CSI samples")
 
     signed_nonce = sign_nonce(nonce).decode()
 
@@ -213,10 +205,6 @@ def start_server():
 
 
 def main():
-    print("Use the following line as configuration for the demo host application to validate that the public key is enrolled correctly:")
-    print(demo_nonce())
-    print()
-
     start_server()
 
 
