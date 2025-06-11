@@ -5,7 +5,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.backends import default_backend
 from datetime import datetime, timedelta, UTC
-from base64 import b64encode
+from base64 import b64encode, b64decode
 
 
 def generate_ecc_key():
@@ -160,9 +160,10 @@ def sign_csr_with_ecc_ca(csr_pem_bytes: bytes, ca_key: ec.EllipticCurvePrivateKe
     )
 
 
-def sign_nonce_with_key(nonce: bytes, key: ec.EllipticCurvePrivateKey) -> bytes:
+def sign_nonce_with_key(nonce: str, key: ec.EllipticCurvePrivateKey) -> bytes:
+    nonce_bytes = b64decode(nonce)
     signature = key.sign(
-        nonce, ec.ECDSA(hashes.SHA512())
+        nonce_bytes, ec.ECDSA(hashes.SHA512())
     )
     return b64encode(signature)
 
