@@ -24,7 +24,7 @@ This container requires two certificates (with private key) and a binary file to
 
 How the volumes are mounted can be arbitrary as long as the environment variables are adjusted. You are advised to load them from a `.env` file.
 
-The required certificates and keys can be created using the provided `create_keys.py` script. Alternatively, OpenSSL can be used.
+The required certificates and keys can be created using the provided `create_keys.py` script. Alternatively, OpenSSL can be used. Sample keys are provided for testing in the `keys` directory.
 
 
 ## Using together with the CBA Demo Application
