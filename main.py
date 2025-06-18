@@ -1,5 +1,6 @@
 from lib.single_command_buffer import SingleCommandBuffer
 from lib.cert_funcs import sign_csr_with_ecc_ca, import_certificate, import_ecc_key, get_csr_cn, sign_nonce_with_key
+from lib.authenticator import enroll_device, authenticate_device
 
 from dotenv import load_dotenv
 
@@ -39,6 +40,16 @@ SIGN_CERT = import_certificate(
 )
 
 
+def command_from_parts(parts: list[bytes | str]) -> bytes:
+    command = b""
+    for part in parts:
+        if type(part) == bytes:
+            command += part
+        else:
+            command += str(part).encode()
+        command += b"\n"
+    return command + b"\n"
+
 
 def sign_csr(csr: bytes) -> bytes:
     return sign_csr_with_ecc_ca(
@@ -49,6 +60,7 @@ def sign_csr(csr: bytes) -> bytes:
 
 def sign_nonce(nonce: bytes) -> bytes:
     return sign_nonce_with_key(nonce, SIGN_KEY)
+
 
 enrolled = []
 
@@ -61,47 +73,65 @@ def command_enroll_certificate(cmd: list[bytes]) -> bytes:
 
         if common_name in enrolled:
             print("Already enrolled.")
-            return b"ERR\nALREADY_ENROLLED\n\n"
+            return command_from_parts(["ERR", "ALREADY_ENROLLED"])
         else:
             signed = sign_csr(raw_csr)
             #enrolled.append(common_name)
-            return b"SUCC\n" + signed + b"\n\n"
+            return command_from_parts(["SUCC", signed])
     except:
         print("Error.")
-        return b"ERR\n\n"
+        return command_from_parts(["ERR", "INTERNAL"])
 
 
 def command_enroll_device_csi(client_id: str | None, cmd: list[bytes]) -> bytes:
-    raw_csi = []
+    if client_id == None:
+        return command_from_parts(["ERR", "NO_AUTH"])
+
+    print(f"Client {client_id} wants to enroll CSI data with {len(cmd) - 1} samples")
+
     try:
         raw_csi = [base64.b64decode(s) for s in cmd[1:]]
+
+        macs = enroll_device(client_id, raw_csi)
+        if macs == None:
+            return command_from_parts(["ERR", "INVALID_DATA"])
+
+        macs_enc = base64.b64encode(macs)
+        return command_from_parts(["SUCC", macs_enc])
     except:
-        pass
-    print(f"Client {client_id} wants to enroll {len(cmd) - 1} samples")
-    return b"SUCC\n3u6tvu7v3u6tvu7v3u6tvu7v3u6tvu7v\n\n"
+        return command_from_parts(["ERR", "INTERNAL"])
 
 
 def command_prove_device(client_id: str | None, cmd: list[bytes]) -> bytes:
     if client_id == None:
         print("Unauthorized prove command!")
-        return b"ERR\nNO_AUTH\n\n"
+        return command_from_parts(["ERR", "NO_AUTH"])
 
     nonce = cmd[1]
     csi_data = cmd[2:]
     print(f"Client {client_id} requested prove with {len(csi) - 2} CSI samples")
 
-    signed_nonce = sign_nonce(nonce).decode()
+    try:
+        raw_csi = [base64.b64decode(s) for s in csi_data]
 
-    return f"SUCC\n{signed_nonce}\n\n".encode()
+        auth_result = authenticate_device(client_id, raw_csi)
+
+        if auth_result:
+            signed_nonce = sign_nonce(nonce)
+            return command_from_parts(["SUCC", signed_nonce])
+        else:
+            return command_from_parts(["ERR", "AUTH_FAILED"])
+    except:
+        return command_from_parts(["ERR", "INTERNAL"])
 
 
 def command_test(client_id: str | None, cmd: list[bytes]) -> bytes:
-    if remote_id != None:
-        print(f"Test command from '{remote_id}'.")
-        return b"SUCC\n0\n\n"
-    else:
+    if remote_id == None:
         print("Unauthorized test command!")
-        return b"ERR\nNO_AUTH\n\n"
+        return command_from_parts(["ERR", "NO_AUTH"])
+
+    print(f"Test command from '{remote_id}'.")
+    return command_from_parts(["SUCC", "0"])
 
 
 
@@ -131,14 +161,14 @@ def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
                     print(f"Invalid command from client ({cmd[0]}).")
                     print(cmd)
                     try:
-                        client.send(b"ERR\nINV_CMD\n\n")
+                        client.send(command_from_parts(["ERR", "INV_CMD"]))
                     except Exception as e:
                         print("E INV CMD:", e)
                         pass
         except Exception as e:
             print("E GENERAL:", e)
             try:
-                client.send(b"ERR\nINT\n\n")
+                client.send(command_from_parts(["ERR", "INTERNAL"]))
             except:
                 pass
             pass
