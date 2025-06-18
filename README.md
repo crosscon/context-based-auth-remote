@@ -1,6 +1,6 @@
 # Context-based Authentication (CBA): Remote Server
 
-**DISCLAIMER:** This code base is still very much work in progress! Actual verification using the Machine Learning model isn't possible yet, and the server returns a signed nonce (resembling a positive response) by default.
+**DISCLAIMER:** Although the ML functionality is implemented, it is still very much a work in progress as it wasn't yet tested on the actual hardware!
 
 This is the remote side for the CBA TA. A `Dockerfile` is provided for easy deployment and configuration
 
@@ -21,6 +21,9 @@ This container requires two certificates (with private key) and a binary file to
 - `SSL_KEY_PATH`: path to the key for the TLS server certificate
 - `SIGN_KEY_PATH`: path to the key for signing nonces upon successful authentication
 - `SIGN_CERT_PATH`: path to the certificate used to verify the signature of the nonces
+- `CSI_DATABASE_PATH`: path to where the CSI enrollment data is stored (e.g. `/db`)
+- `ML_MODEL_SAMPLES_PER_RECORDING`: number of samples the machine learning model uses for authentication (currently 64)
+- `ML_MODEL_CHECKPOINT_PATH`: path to the checkpoint data of the trained machine learning model (must be mounted as a Docker volume)
 
 How the volumes are mounted can be arbitrary as long as the environment variables are adjusted. You are advised to load them from a `.env` file.
 
