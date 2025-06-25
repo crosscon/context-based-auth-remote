@@ -68,7 +68,7 @@ def model_predict(embedding_model, csi_1, csi_2, device):
         p_same = embedding_model(csi_1, csi_2).flatten()
         pred = (p_same >= 0.9).float().item()
 
-    return pred
+    return pred > 0
 
 
 

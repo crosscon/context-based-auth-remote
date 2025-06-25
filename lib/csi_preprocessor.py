@@ -7,6 +7,8 @@ from scipy.signal import butter, filtfilt
 import os
 import dotenv
 
+from .csi_database import CSIRecord
+
 dotenv.load_dotenv()
 
 ML_MODEL_SAMPLES_PER_RECORDING = int(os.environ.get("ML_MODEL_SAMPLES_PER_RECORDING"))
@@ -49,3 +51,7 @@ def bytes_to_tensor(raw_csi_bytes: bytes) -> torch.tensor:
 
     return csi_fingerprint.tolist()
 
+
+def records_to_tensor(raw_csi: list[CSIRecord]) -> torch.tensor:
+    converted_to_tensors = [bytes_to_tensor(r.get_csi_bytes()) for r in raw_csi]
+    return torch.stack(converted_to_tensors)

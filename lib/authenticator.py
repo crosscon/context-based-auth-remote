@@ -1,4 +1,6 @@
-from .csi_preprocessor import bytes_to_tensor
+from torch import tensor
+
+from .csi_preprocessor import records_to_tensor
 from .ml_model import authenticate
 from .csi_database import CSIDatabase, CSIRecord, csi_record_from_base64
 
@@ -7,6 +9,7 @@ import os
 
 CSI_DATABASE_PATH = os.environ.get("CSI_DATABASE_PATH")
 ML_MODEL_SAMPLES_PER_RECORDING = int(os.environ.get("ML_MODEL_SAMPLES_PER_RECORDING"))
+ACCEPTANCE_THRESHOLD = float(os.environ.get("ACCEPTANCE_THRESHOLD"))
 
 if None in [CSI_DATABASE_PATH, ML_MODEL_SAMPLES_PER_RECORDING]:
     raise Exception("Error: Missing Environment variable!")
@@ -16,11 +19,17 @@ DATABASE = CSIDatabase(CSI_DATABASE_PATH)
 
 
 def decide(num_enrolled: int, num_stil_here: int, num_matches: int) -> bool:
-    return False
+    if num_enrolled == 0:
+        return False
+
+    return num_matches / num_enrolled >= ACCEPTANCE_THRESHOLD
 
 
-def ml_compare(device_a: list[CSIRecord], device_2: list[CSIRecord]) -> bool | None:
-    pass
+def ml_compare(device_a: list[CSIRecord], device_b: list[CSIRecord]) -> bool | None:
+    t1 = records_to_tensor(device_a)
+    t2 = records_to_tensor(device_b)
+
+    return authenticate(t1, t2)
 
 
 def parse_order_records(collected_records: list[bytes]) -> dict[bytes, list[CSIRecord]]:
