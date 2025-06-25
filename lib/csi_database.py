@@ -28,7 +28,7 @@ class CSIRecord():
 
 
     def get_time_offset(self) -> int:
-        return int.from_bytes(self.__raw[9:11], byteorder="little", signed=True)
+        return int.from_bytes(self.__raw[9:11], byteorder="little", signed=False)
 
 
     def get_csi_bytes(self) -> bytes:
