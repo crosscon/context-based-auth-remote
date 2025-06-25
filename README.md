@@ -24,6 +24,7 @@ This container requires two certificates (with private key) and a binary file to
 - `CSI_DATABASE_PATH`: path to where the CSI enrollment data is stored (e.g. `/db`)
 - `ML_MODEL_SAMPLES_PER_RECORDING`: number of samples the machine learning model uses for authentication (currently 64)
 - `ML_MODEL_CHECKPOINT_PATH`: path to the checkpoint data of the trained machine learning model (must be mounted as a Docker volume)
+- `ACCEPTANCE_THRESHOLD`: threshold for number of device to match between current environment and enrollment (e.g. 5 devices in enrollment, 3 matches found in current environment --> 0.6); float between 0 and 1
 
 How the volumes are mounted can be arbitrary as long as the environment variables are adjusted. You are advised to load them from a `.env` file.
 
