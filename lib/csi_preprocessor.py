@@ -27,7 +27,7 @@ def lowpass_filter(data, cutoff=0.1, order=4):
     return filtfilt(b, a, data)
 
 
-def bytes_to_tensor(raw_csi_bytes: bytes) -> torch.tensor:
+def bytes_to_amplitude_phase(raw_csi_bytes: bytes) -> tuple[list[float], list[float]]:
     csi_fingerprint = csi_int16_from_bytes(raw_csi_bytes)
     amplitude = []
     phase = []
@@ -44,14 +44,24 @@ def bytes_to_tensor(raw_csi_bytes: bytes) -> torch.tensor:
     phase = list(np.unwrap(phase))
     phase = (phase - np.min(phase)) / (np.max(phase) - np.min(phase))
 
-    csi_fingerprint = [amplitude, phase]
+    return amplitude, phase
 
-    csi_fingerprint = torch.tensor(csi_fingerprint, dtype=torch.float64)  # [time, 2, subcarrier_idx]
-    csi_fingerprint = csi_fingerprint.transpose(0, 1)  # [2, time, subcarrier_idx]
+    #csi_fingerprint = [amplitude, phase]
 
-    return csi_fingerprint.tolist()
+    #csi_fingerprint = torch.tensor(csi_fingerprint, dtype=torch.float64)  # [time, 2, subcarrier_idx]
+    #print(csi_fingerprint.shape)
+    #csi_fingerprint = csi_fingerprint.transpose(0, 1)  # [2, time, subcarrier_idx]
+    #print(csi_fingerprint.shape)
+
+    #return csi_fingerprint.tolist()
 
 
-def records_to_tensor(raw_csi: list[CSIRecord]) -> torch.tensor:
-    converted_to_tensors = [bytes_to_tensor(r.get_csi_bytes()) for r in raw_csi]
-    return torch.stack(converted_to_tensors)
+def records_to_tensor(csi_records: list[CSIRecord]) -> torch.tensor:
+    amplitudes = []
+    phases = []
+    for record in csi_records:
+        amplitude, phase = bytes_to_amplitude_phase(record.get_csi_bytes())
+        amplitudes.append(amplitude)
+        phases.append(phase)
+
+    return torch.tensor(np.array([[amplitudes, phases]]), dtype=torch.float)

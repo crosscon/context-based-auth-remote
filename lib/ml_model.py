@@ -78,6 +78,6 @@ def authenticate(csi_1, csi_2):
 
     embedding_model = SiameseModel().to(device).eval()
 
-    embedding_model.load_state_dict(torch.load(CHECKPOINT_PATH, map_location=device))
+    embedding_model.load_state_dict(torch.load(ML_MODEL_CHECKPOINT_PATH, map_location=device))
 
     return model_predict(embedding_model, csi_1, csi_2, device)
