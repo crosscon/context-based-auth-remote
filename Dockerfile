@@ -1,4 +1,6 @@
-FROM python:3.12.10-alpine3.21
+FROM python:3.12.10-slim
+
+RUN apt update && apt install -y build-essential
 
 WORKDIR /app
 
