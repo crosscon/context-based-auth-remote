@@ -1,6 +1,6 @@
 # Context-based Authentication (CBA): Remote Server
 
-**DISCLAIMER:** This code base is still very much work in progress! Actual verification using the Machine Learning model isn't possible yet, and the server returns a signed nonce (resembling a positive response) by default.
+**DISCLAIMER:** Actual verification using the Machine Learning model isn't possible with this branch (see `with-ml` for that). However, it is valuable for testing the connection with the Trusted Application on the Hypervisor (see [here](https://github.com/crosscon/context-based-auth-crosscon-demo) for an overview of the entire pipeine) as the server returns a signed nonce (resembling a positive response) by default.
 
 This is the remote side for the CBA TA. A `Dockerfile` is provided for easy deployment and configuration
 
