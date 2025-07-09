@@ -96,6 +96,8 @@ class CSIDatabase():
 
             return True
         except Exception as e:
+            print("EXCEPTION while saving CSI records in database:")
+            print(e)
             self.revoke_csi_records(device_id)
 
 
@@ -116,10 +118,14 @@ class CSIDatabase():
                 indiv = [e for e in raw.split("\n") if len(e) > 0]
                 records = [csi_record_from_base64(enc) for enc in indiv]
 
-                ret[file] = records
+                mac_bytes = bytes([int(e) for e in file.split("-")])
+
+                ret[mac_bytes] = records
 
             return ret
-        except:
+        except Exception as e:
+            print("EXCEPTION while retrieving CSI records from database:")
+            print(e)
             return None
 
 
@@ -127,5 +133,7 @@ class CSIDatabase():
         try:
             shutil.rmtree(self.__device_path(device_id), ignore_errors=True)
             return True
-        except:
+        except Exception as e:
+            print("EXCEPTION while removing CSI records from database:")
+            print(e)
             return False

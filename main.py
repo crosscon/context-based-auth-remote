@@ -8,7 +8,6 @@ import logging
 import socket
 import ssl
 import os
-import time
 
 
 load_dotenv()
@@ -78,8 +77,10 @@ def command_enroll_certificate(cmd: list[bytes]) -> bytes:
             signed = sign_csr(raw_csr)
             #enrolled.append(common_name)
             return command_from_parts(["SUCC", signed])
-    except:
-        print("Error.")
+    except Exception as e:
+        print("EXCEPTION while enrolling device certificate:")
+        print(e)
+
         return command_from_parts(["ERR", "INTERNAL"])
 
 
@@ -87,18 +88,22 @@ def command_enroll_device_csi(client_id: str | None, cmd: list[bytes]) -> bytes:
     if client_id == None:
         return command_from_parts(["ERR", "NO_AUTH"])
 
-    print(f"Client {client_id} wants to enroll CSI data with {len(cmd) - 1} samples")
+    csi_data = cmd[1:]
+
+    print(f"Client {client_id} wants to enroll CSI data with {len(csi_data)} samples")
 
     try:
-        raw_csi = [base64.b64decode(s) for s in cmd[1:]]
+        csi_data = cmd[1:]
 
-        macs = enroll_device(client_id, raw_csi)
+        macs = enroll_device(client_id, csi_data)
         if macs == None:
             return command_from_parts(["ERR", "INVALID_DATA"])
 
-        macs_enc = base64.b64encode(macs)
-        return command_from_parts(["SUCC", macs_enc])
-    except:
+        return command_from_parts(["SUCC", macs])
+    except Exception as e:
+        print("EXCEPTION while enrolling device CSI data:")
+        print(e)
+
         return command_from_parts(["ERR", "INTERNAL"])
 
 
@@ -109,28 +114,29 @@ def command_prove_device(client_id: str | None, cmd: list[bytes]) -> bytes:
 
     nonce = cmd[1]
     csi_data = cmd[2:]
-    print(f"Client {client_id} requested prove with {len(csi) - 2} CSI samples")
+    print(f"Client {client_id} requested prove with {len(csi_data)} CSI samples")
 
     try:
-        raw_csi = [base64.b64decode(s) for s in csi_data]
-
-        auth_result = authenticate_device(client_id, raw_csi)
+        auth_result = authenticate_device(client_id, csi_data)
 
         if auth_result:
             signed_nonce = sign_nonce(nonce)
             return command_from_parts(["SUCC", signed_nonce])
         else:
             return command_from_parts(["ERR", "AUTH_FAILED"])
-    except:
+    except Exception as e:
+        print("EXCEPTION while proving device:")
+        print(e)
+
         return command_from_parts(["ERR", "INTERNAL"])
 
 
 def command_test(client_id: str | None, cmd: list[bytes]) -> bytes:
-    if remote_id == None:
+    if client_id == None:
         print("Unauthorized test command!")
         return command_from_parts(["ERR", "NO_AUTH"])
 
-    print(f"Test command from '{remote_id}'.")
+    print(f"Test command from '{client_id}'.")
     return command_from_parts(["SUCC", "0"])
 
 
@@ -166,12 +172,13 @@ def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
                         print("E INV CMD:", e)
                         pass
         except Exception as e:
-            print("E GENERAL:", e)
+            print("General EXCEPTION while handling client:")
+            print(e)
+
             try:
                 client.send(command_from_parts(["ERR", "INTERNAL"]))
             except:
                 pass
-            pass
 
 
 def start_server():
@@ -222,10 +229,9 @@ def start_server():
         except ssl.SSLError as e:
             print("SSL Error:")
             print(e)
-            #import traceback
-            #traceback.print_exc()
         except Exception as e:
-            print("General error accepting client")
+            print("General EXCEPTION accepting client:")
+            print(e)
         finally:
             try:
                 wrapped_client.shutdown(socket.SHUT_RDWR)

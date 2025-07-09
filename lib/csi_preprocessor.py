@@ -40,9 +40,13 @@ def bytes_to_amplitude_phase(raw_csi_bytes: bytes) -> tuple[list[float], list[fl
         phase.append(phs)  # [64]
 
     amplitude = lowpass_filter(amplitude)
-    amplitude = (amplitude - np.min(amplitude)) / (np.max(amplitude) - np.min(amplitude))  # min-max
+
+    delta_ampl = np.max(amplitude) - np.min(amplitude)
+    amplitude = (amplitude - np.min(amplitude)) / (delta_ampl if delta_ampl != 0 else 1)  # min-max
+
     phase = list(np.unwrap(phase))
-    phase = (phase - np.min(phase)) / (np.max(phase) - np.min(phase))
+    delta_phase = np.max(phase) - np.min(phase)
+    phase = (phase - np.min(phase)) / (delta_phase if delta_phase != 0 else 1)
 
     return amplitude, phase
 
@@ -60,8 +64,10 @@ def records_to_tensor(csi_records: list[CSIRecord]) -> torch.tensor:
     amplitudes = []
     phases = []
     for record in csi_records:
-        amplitude, phase = bytes_to_amplitude_phase(record.get_csi_bytes())
+        csi_bytes = record.get_csi_bytes()
+        amplitude, phase = bytes_to_amplitude_phase(csi_bytes)
         amplitudes.append(amplitude)
         phases.append(phase)
 
-    return torch.tensor(np.array([[amplitudes, phases]]), dtype=torch.float)
+    arr = np.array([[amplitudes, phases]])
+    return torch.tensor(arr, dtype=torch.float)

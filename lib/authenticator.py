@@ -4,6 +4,7 @@ from .csi_preprocessor import records_to_tensor
 from .ml_model import authenticate
 from .csi_database import CSIDatabase, CSIRecord, csi_record_from_base64
 
+import base64
 import os
 
 
@@ -34,6 +35,7 @@ def ml_compare(device_a: list[CSIRecord], device_b: list[CSIRecord]) -> bool | N
 
 def parse_order_records(collected_records: list[bytes]) -> dict[bytes, list[CSIRecord]]:
     parsed_records = [csi_record_from_base64(rec) for rec in collected_records]
+
     all_macs = { rec.get_mac_address_bytes() for rec in parsed_records }
 
     return {
@@ -45,15 +47,16 @@ def parse_order_records(collected_records: list[bytes]) -> dict[bytes, list[CSIR
 def get_filtered_records(parsed_ordered_records: dict[bytes, list[CSIRecord]]) -> dict[bytes, CSIRecord]:
     return {
         k: v
-        for k, v in parse_order_records.items()
+        for k, v in parsed_ordered_records.items()
         if len(v) >= ML_MODEL_SAMPLES_PER_RECORDING
     }
 
 
-
+""" IMPORTANT: collected_records must be a list of BASE64-ENCODED records! """
 def authenticate_device(device_id: str, collected_records: list[bytes]) -> bool:
+    parsed_ordered_records = parse_order_records(collected_records)
     records = get_filtered_records(
-        parsed_ordered_records(collected_records)
+        parsed_ordered_records
     )
 
     enrolled = DATABASE.get_enrolled_records(device_id)
@@ -76,17 +79,22 @@ def authenticate_device(device_id: str, collected_records: list[bytes]) -> bool:
 
 
 
+""" IMPORTANT: collected_records must be a list of BASE64-ENCODED records! """
 def enroll_device(device_id: str, collected_records: list[bytes]) -> bytes | None:
+    parsed_ordered_records = parse_order_records(collected_records)
     records = get_filtered_records(
-        parsed_ordered_records(collected_records)
+        parsed_ordered_records
     )
 
-    filtered_records = [rec for l in records.items() for rec in l]
+    filtered_records = [rec for l in records.values() for rec in l]
     filtered_macs = list(records.keys())
 
     if len(filtered_records) < 1:
         return None
 
     if DATABASE.enroll_csi_records(device_id, filtered_records):
-        return filtered_macs
+        total_mac_bytes = bytes()
+        for mac in filtered_macs:
+            total_mac_bytes += mac
+        return base64.b64encode(total_mac_bytes)
 
