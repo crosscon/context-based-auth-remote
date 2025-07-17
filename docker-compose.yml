@@ -1,9 +1,10 @@
 services:
   remote:
-    image: crosscon-ra-remote:latest
+    image: crosscon-cba-remote:latest
     volumes:
       - "./keys:/keys:ro"
-      - "./verified:/verified:ro"
+      - "./db:/db"
+      - "./e2e.pt:/ml/mlmodel:ro"
     env_file: ".env"
     ports:
       - 5432:5432

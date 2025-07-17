@@ -82,6 +82,7 @@ def authenticate_device(device_id: str, collected_records: list[bytes]) -> bool:
 """ IMPORTANT: collected_records must be a list of BASE64-ENCODED records! """
 def enroll_device(device_id: str, collected_records: list[bytes]) -> bytes | None:
     parsed_ordered_records = parse_order_records(collected_records)
+
     records = get_filtered_records(
         parsed_ordered_records
     )

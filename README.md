@@ -24,6 +24,8 @@ This container requires two certificates (with private key) and a binary file to
 - `ML_MODEL_CHECKPOINT_PATH`: path to the checkpoint data of the trained machine learning model (must be mounted as a Docker volume); `e2e.pt` is provided in this repo
 - `ACCEPTANCE_THRESHOLD`: threshold for number of device to match between current environment and enrollment (e.g. 5 devices in enrollment, 3 matches found in current environment --> 0.6); float between 0 and 1
 
+More environment variables can be set for testing. See [here](#testing) for more details.
+
 How the volumes are mounted can be arbitrary as long as the environment variables are adjusted. You are advised to load them from a `.env` file.
 
 The required certificates and keys can be created using the provided `create_keys.py` script. Alternatively, OpenSSL can be used.
@@ -33,7 +35,21 @@ Sample keys **for testing purposes only** are provided in the `keys` directory.
 
 ## Testing
 
-For testing, it's advised to use the `development` branch as it always returns a successful authentication attempt and, thus, is more predictable than the ML version.
+For testing the communication between the hypervisor and the remote server, the *Connection-Only Mode* exists. It skips processing the CSI samples and CSI data, and can be used to verify that the connection between the remote server and the Pi works. This has the following consequences:
+
+- re-enrollment is permitted
+- all prove attempts will succeed
+- raw received data is dumped to the file `dump` (inside the docker container: `/app/dump`) for manual readout
+- allow use without client certificate (use default name `DEF` if no certificate used)
+
+To enable Connection-Only Mode, set the environment value `CONN_ONLY_MODE` to any value. To permit parts of the mode, set the environment variables accordingly to a non-empty value:
+| Environment Variable | Feature |
+| --- | --- |
+| `PERMIT_RE_ENROLLMENT` | Allow multiple enrollment requests with the same client ID |
+| `ALLOW_GUEST_NO_CERT` | Allow enroll/prove requests with CSI data without a client certificate |
+| `DUMP_INCOMING` | Write all incoming command data to `/app/dump` |
+
+Please note that re-enrollment ONLY has an effect on the server. The client behavior for re-enrolling is NOT affected by this!
 
 
 ## Using together with the CBA Demo Application

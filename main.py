@@ -39,6 +39,34 @@ SIGN_CERT = import_certificate(
 )
 
 
+CONN_ONLY_MODE = len(os.environ.get("CONN_ONLY_MODE", default="")) > 0
+PERMIT_RE_ENROLLMENT = CONN_ONLY_MODE or len(os.environ.get("PERMIT_RE_ENROLLMENT", default="")) > 0
+ALLOW_GUEST_NO_CERT = CONN_ONLY_MODE or len(os.environ.get("ALLOW_GUEST_NO_CERT", default="")) > 0
+DUMP_INCOMING = CONN_ONLY_MODE or len(os.environ.get("DUMP_INCOMING", default="")) > 0
+
+if CONN_ONLY_MODE or PERMIT_RE_ENROLLMENT or ALLOW_GUEST_NO_CERT:
+    print("!WARNING!")
+    if CONN_ONLY_MODE:
+        print("CONNECTION ONLY MODE ENABLED")
+        print("All prove requests will be granted!")
+    if PERMIT_RE_ENROLLMENT:
+        print("RE-ENROLLMENT ALLOWED")
+        print("A device with a given ID can enroll multiple times")
+    if ALLOW_GUEST_NO_CERT:
+        print("GUESTS WITHOUT CLIENT CERT ALLOWED")
+        print("A device can connect and enroll/prove without a valid client certificate")
+    if DUMP_INCOMING:
+        print("DUMPING INCOMING COMMANDS")
+        print("All incoming commands are logged to a file")
+    print("Only use when you know what to do!")
+    print()
+
+
+if DUMP_INCOMING and not os.path.exists("./dump"):
+    with open("./dump", "w") as f:
+        f.write("")
+
+
 def command_from_parts(parts: list[bytes | str]) -> bytes:
     command = b""
     for part in parts:
@@ -65,7 +93,7 @@ enrolled = []
 
 
 
-def command_enroll_certificate(cmd: list[bytes]) -> bytes:
+def command_enroll_certificate(cmd: list[str]) -> bytes:
     try:
         raw_csr = "\n".join([l for l in cmd[1:] if len(l) > 0]).encode()
         common_name = get_csr_cn(raw_csr)
@@ -75,7 +103,8 @@ def command_enroll_certificate(cmd: list[bytes]) -> bytes:
             return command_from_parts(["ERR", "ALREADY_ENROLLED"])
         else:
             signed = sign_csr(raw_csr)
-            #enrolled.append(common_name)
+            if not PERMIT_RE_ENROLLMENT:
+                enrolled.append(common_name)
             return command_from_parts(["SUCC", signed])
     except Exception as e:
         print("EXCEPTION while enrolling device certificate:")
@@ -84,7 +113,7 @@ def command_enroll_certificate(cmd: list[bytes]) -> bytes:
         return command_from_parts(["ERR", "INTERNAL"])
 
 
-def command_enroll_device_csi(client_id: str | None, cmd: list[bytes]) -> bytes:
+def command_enroll_device_csi(client_id: str | None, cmd: list[str]) -> bytes:
     if client_id == None:
         return command_from_parts(["ERR", "NO_AUTH"])
 
@@ -92,22 +121,30 @@ def command_enroll_device_csi(client_id: str | None, cmd: list[bytes]) -> bytes:
 
     print(f"Client {client_id} wants to enroll CSI data with {len(csi_data)} samples")
 
-    try:
-        csi_data = cmd[1:]
+    if CONN_ONLY_MODE:
+        print("!CONNECTION ONLY MODE!")
+        print("Accepting enrollment request")
 
-        macs = enroll_device(client_id, csi_data)
-        if macs == None:
-            return command_from_parts(["ERR", "INVALID_DATA"])
+        return command_from_parts(["SUCC", "?"])
+    else:
+        try:
+            csi_data = cmd[1:]
 
-        return command_from_parts(["SUCC", macs])
-    except Exception as e:
-        print("EXCEPTION while enrolling device CSI data:")
-        print(e)
+            macs = enroll_device(client_id, csi_data)
+            if macs == None:
+                print("Not enough or invalid CSI data supplied")
+                return command_from_parts(["ERR", "INVALID_DATA"])
 
-        return command_from_parts(["ERR", "INTERNAL"])
+            print("CSI data enrolled successfully")
+            return command_from_parts(["SUCC", macs])
+        except Exception as e:
+            print("EXCEPTION while enrolling device CSI data:")
+            print(e)
+
+            return command_from_parts(["ERR", "INTERNAL"])
 
 
-def command_prove_device(client_id: str | None, cmd: list[bytes]) -> bytes:
+def command_prove_device(client_id: str | None, cmd: list[str]) -> bytes:
     if client_id == None:
         print("Unauthorized prove command!")
         return command_from_parts(["ERR", "NO_AUTH"])
@@ -116,22 +153,31 @@ def command_prove_device(client_id: str | None, cmd: list[bytes]) -> bytes:
     csi_data = cmd[2:]
     print(f"Client {client_id} requested prove with {len(csi_data)} CSI samples")
 
-    try:
-        auth_result = authenticate_device(client_id, csi_data)
+    if CONN_ONLY_MODE:
+        print("!CONNECTION ONLY MODE!")
+        print("Return signed nonce")
 
-        if auth_result:
-            signed_nonce = sign_nonce(nonce)
-            return command_from_parts(["SUCC", signed_nonce])
-        else:
-            return command_from_parts(["ERR", "AUTH_FAILED"])
-    except Exception as e:
-        print("EXCEPTION while proving device:")
-        print(e)
+        signed_nonce = sign_nonce(nonce)
+        return command_from_parts(["SUCC", signed_nonce])
+    else:
+        try:
+            auth_result = authenticate_device(client_id, csi_data)
 
-        return command_from_parts(["ERR", "INTERNAL"])
+            if auth_result:
+                print("Prove valid, return signed nonce")
+                signed_nonce = sign_nonce(nonce)
+                return command_from_parts(["SUCC", signed_nonce])
+            else:
+                print("Prove invalid, rejecting attempt")
+                return command_from_parts(["ERR", "AUTH_FAILED"])
+        except Exception as e:
+            print("EXCEPTION while proving device:")
+            print(e)
+
+            return command_from_parts(["ERR", "INTERNAL"])
 
 
-def command_test(client_id: str | None, cmd: list[bytes]) -> bytes:
+def command_test(client_id: str | None, cmd: list[str]) -> bytes:
     if client_id == None:
         print("Unauthorized test command!")
         return command_from_parts(["ERR", "NO_AUTH"])
@@ -142,7 +188,6 @@ def command_test(client_id: str | None, cmd: list[bytes]) -> bytes:
 
 
 def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
-    c = 0
     print("ID:", remote_id)
     buf = SingleCommandBuffer()
 
@@ -152,6 +197,9 @@ def handle_client(client: socket.socket | ssl.SSLSocket, remote_id: str | None):
                 print("Client disconnected.")
                 break
             buf.update(rcv)
+            if DUMP_INCOMING:
+                with open("./dump", "ab") as f:
+                    f.write(rcv)
 
             while (cmd := buf.get_next_command()):
                 cmd = [c.decode() for c in cmd]
@@ -224,6 +272,12 @@ def start_server():
             else:
                 print("Client didn't use Certificate")
                 remote_id = None
+
+            if remote_id == None and ALLOW_GUEST_NO_CERT:
+                print("!GUESTS ALLOWED!")
+                print("Set ID to default value")
+
+                remote_id = "DEF"
 
             handle_client(wrapped_client, remote_id)
         except ssl.SSLError as e:
