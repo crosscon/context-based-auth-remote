@@ -88,7 +88,7 @@ def command_prove_device(client_id: str | None, cmd: list[bytes]) -> bytes:
 
     nonce = cmd[1]
     csi_data = cmd[2:]
-    print(f"Client {client_id} requested prove with {len(csi) - 2} CSI samples")
+    print(f"Client {client_id} requested prove with {len(csi_data) - 2} CSI samples")
 
     signed_nonce = sign_nonce(nonce).decode()
 
