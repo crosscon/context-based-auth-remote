@@ -74,7 +74,7 @@ def command_enroll_certificate(cmd: list[str]) -> bytes:
 def command_enroll_device_csi(client_id: str | None, cmd: list[str]) -> bytes:
     csi_samples = cmd[1:]
     print(f"Client {client_id} wants to enroll {len(csi_samples)} samples")
-    return b"SUCC\n3u6tvu7v3u6tvu7v3u6tvu7v3u6tvu7v\n\n"
+    return b"SUCC\n?\n\n"
 
 
 def command_prove_device(client_id: str | None, cmd: list[str]) -> bytes:
