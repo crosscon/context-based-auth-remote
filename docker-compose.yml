@@ -2,7 +2,7 @@ services:
   remote:
     image: crosscon-ra-remote:latest
     volumes:
-      - "./keys:/keys:ro"
+      - "./keys:/app/keys:ro"
       - "./verified:/verified:ro"
     env_file: ".env"
     ports:
