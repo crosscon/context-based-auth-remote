@@ -47,14 +47,14 @@ def sign_csr(csr: bytes) -> bytes:
         CA_CERT
     )
 
-def sign_nonce(nonce: bytes) -> bytes:
+def sign_nonce(nonce: str) -> bytes:
     return sign_nonce_with_key(nonce, SIGN_KEY)
 
 enrolled = []
 
 
 
-def command_enroll_certificate(cmd: list[bytes]) -> bytes:
+def command_enroll_certificate(cmd: list[str]) -> bytes:
     try:
         raw_csr = "\n".join([l for l in cmd[1:] if len(l) > 0]).encode()
         common_name = get_csr_cn(raw_csr)
@@ -71,33 +71,29 @@ def command_enroll_certificate(cmd: list[bytes]) -> bytes:
         return b"ERR\n\n"
 
 
-def command_enroll_device_csi(client_id: str | None, cmd: list[bytes]) -> bytes:
-    raw_csi = []
-    try:
-        raw_csi = [base64.b64decode(s) for s in cmd[1:]]
-    except:
-        pass
-    print(f"Client {client_id} wants to enroll {len(cmd) - 1} samples")
-    return b"SUCC\n3u6tvu7v3u6tvu7v3u6tvu7v3u6tvu7v\n\n"
+def command_enroll_device_csi(client_id: str | None, cmd: list[str]) -> bytes:
+    csi_samples = cmd[1:]
+    print(f"Client {client_id} wants to enroll {len(csi_samples)} samples")
+    return b"SUCC\n?\n\n"
 
 
-def command_prove_device(client_id: str | None, cmd: list[bytes]) -> bytes:
+def command_prove_device(client_id: str | None, cmd: list[str]) -> bytes:
     if client_id == None:
         print("Unauthorized prove command!")
         return b"ERR\nNO_AUTH\n\n"
 
     nonce = cmd[1]
     csi_data = cmd[2:]
-    print(f"Client {client_id} requested prove with {len(csi) - 2} CSI samples")
+    print(f"Client {client_id} requested prove with {len(csi_data)} CSI samples")
 
     signed_nonce = sign_nonce(nonce).decode()
 
     return f"SUCC\n{signed_nonce}\n\n".encode()
 
 
-def command_test(client_id: str | None, cmd: list[bytes]) -> bytes:
-    if remote_id != None:
-        print(f"Test command from '{remote_id}'.")
+def command_test(client_id: str | None, cmd: list[str]) -> bytes:
+    if client_id != None:
+        print(f"Test command from '{client_id}'.")
         return b"SUCC\n0\n\n"
     else:
         print("Unauthorized test command!")
