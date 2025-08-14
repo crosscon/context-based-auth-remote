@@ -118,7 +118,7 @@ class CSIDatabase():
                 indiv = [e for e in raw.split("\n") if len(e) > 0]
                 records = [csi_record_from_base64(enc) for enc in indiv]
 
-                mac_bytes = bytes([int(e) for e in file.split("-")])
+                mac_bytes = bytes([int(e, base=16) for e in file.split("-")])
 
                 ret[mac_bytes] = records
 
