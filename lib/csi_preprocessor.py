@@ -22,34 +22,21 @@ def csi_int16_from_bytes(b: bytes) -> list[int]:
     ]
 
 
-def lowpass_filter(data, cutoff=0.1, order=4):
-    b, a = butter(order, cutoff, btype='low')
-    return filtfilt(b, a, data)
-
-
-def bytes_to_amplitude_phase(raw_csi_bytes: bytes) -> tuple[list[float], list[float]]:
+def bytes_to_amplitude_phase(raw_csi_bytes: bytes) -> list[float]:
     csi_fingerprint = csi_int16_from_bytes(raw_csi_bytes)
     amplitude = []
-    phase = []
     for j in range(0, 128, 2):
+        if j in [0, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74]:
+            continue
         real = csi_fingerprint[j]
         imag = csi_fingerprint[j + 1]
-        amp = math.sqrt(real ** 2 + imag ** 2)
-        phs = math.atan2(imag, real)
-        amplitude.append(amp)  # [64]
-        phase.append(phs)  # [64]
+        amplitude.append(math.sqrt(real ** 2 + imag ** 2))  # [52]
 
-    amplitude = lowpass_filter(amplitude)
 
     delta_ampl = np.max(amplitude) - np.min(amplitude)
-    amplitude = (amplitude - np.min(amplitude)) / (delta_ampl if delta_ampl != 0 else 1)  # min-max
+    amplitude = (amplitude - np.min(amplitude)) / (delta_ampl if delta_ampl != 0 else 1)  # min-max normalization
 
-    phase = list(np.unwrap(phase))
-    delta_phase = np.max(phase) - np.min(phase)
-    phase = (phase - np.min(phase)) / (delta_phase if delta_phase != 0 else 1)
-
-    return amplitude, phase
-
+    return amplitude
     #csi_fingerprint = [amplitude, phase]
 
     #csi_fingerprint = torch.tensor(csi_fingerprint, dtype=torch.float64)  # [time, 2, subcarrier_idx]
@@ -62,12 +49,10 @@ def bytes_to_amplitude_phase(raw_csi_bytes: bytes) -> tuple[list[float], list[fl
 
 def records_to_tensor(csi_records: list[CSIRecord]) -> torch.tensor:
     amplitudes = []
-    phases = []
     for record in csi_records:
         csi_bytes = record.get_csi_bytes()
-        amplitude, phase = bytes_to_amplitude_phase(csi_bytes)
+        amplitude = bytes_to_amplitude_phase(csi_bytes)
         amplitudes.append(amplitude)
-        phases.append(phase)
 
-    arr = np.array([[amplitudes, phases]])
+    arr = np.array([[amplitudes]])
     return torch.tensor(arr, dtype=torch.float)

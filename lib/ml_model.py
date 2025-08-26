@@ -9,50 +9,53 @@ dotenv.load_dotenv()
 
 ML_MODEL_CHECKPOINT_PATH = os.environ.get("ML_MODEL_CHECKPOINT_PATH")
 
-# taken from https://github.com/RS2002/CrossFi/blob/main/model.py, introduced by "CrossFi: A Cross Domain WiFi Sensing Framework Based on Siamese Network"
-class ResnetBasedSiamese2dNetwork(nn.Module):
-    def __init__(self, output_dims: int = 64, channel: int = 2, pretrained: bool = True, norm: bool = False):
+class CNNEmbedder(nn.Module):
+    def __init__(self, channel: int = 1):
         super().__init__()
-        self.model = models.resnet18(pretrained)
-        self.model.conv1 = nn.Conv2d(channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.model.fc = nn.Linear(self.model.fc.in_features, output_dims)
-        self.norm = norm
+        self.model = torch.nn.Sequential(
+            nn.Conv2d(channel, 4, kernel_size=3, stride=1), 
+            nn.Tanh(),
+            nn.Dropout2d(p=0.5),
+      
+            nn.Conv2d(4, 8, kernel_size=3, stride=1), 
+            nn.Tanh(),
+            nn.Dropout2d(p=0.5),
+
+            nn.MaxPool2d(kernel_size=3, stride=1),
+
+            nn.Conv2d(8, 16, kernel_size=5, stride=1), 
+            nn.Tanh(),
+            nn.Dropout2d(p=0.5),
+
+            nn.Conv2d(16, 32, kernel_size=3, stride=1),
+            nn.Tanh(),
+            nn.AdaptiveAvgPool2d(1),
+
+            nn.Flatten(),
+        )
 
     def forward(self,x):
-        if self.norm:
-            mean = torch.mean(x, dim=-1, keepdim=True)
-            std = torch.std(x, dim=-1, keepdim=True)
-            y = (x - mean) / std
-        else:
-            y = x
-        return self.model(y)
+        return self.model(x)
 
 
 class SiameseDiscriminator(nn.Module):
-    def __init__(self, embedding_dim=64):
+    def __init__(self):
         super().__init__()
-        # after concat you have 2×embedding_dim input
         self.classifier = nn.Sequential(
-            nn.Linear(2 * embedding_dim, 256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.3),
-            nn.Linear(256, 64),
-            nn.ReLU(inplace=True),
-            nn.Linear(64, 1),
-            nn.Sigmoid(),   # outputs P(same)
+            nn.Linear(32, 1),
+            nn.Sigmoid(),
         )
 
     def forward(self, e1, e2):
-        # you could also do torch.abs(e1 - e2) or elementwise mult
-        x = torch.cat([e1, e2], dim=1)
+        x = torch.abs(e1 - e2)
         return self.classifier(x)
 
 
 class SiameseModel(nn.Module):
-    def __init__(self, embedding_dim=64):
+    def __init__(self):
         super().__init__()
-        self.encoder = ResnetBasedSiamese2dNetwork()
-        self.discriminator = SiameseDiscriminator(embedding_dim)
+        self.encoder = CNNEmbedder()
+        self.discriminator = SiameseDiscriminator()
 
     def forward(self, x1, x2):
         e1 = self.encoder(x1)
@@ -66,7 +69,7 @@ def model_predict(embedding_model, csi_1, csi_2, device):
         csi_1, csi_2 = csi_1.to(device), csi_2.to(device)
 
         p_same = embedding_model(csi_1, csi_2).flatten()
-        pred = (p_same >= 0.9).float().item()
+        pred = (p_same > 0.7).float().item()
 
     return pred > 0
 
